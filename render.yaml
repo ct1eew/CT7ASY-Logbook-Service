@@ -7,5 +7,7 @@ services:
     startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 100 server:app
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
       - key: ALLOWED_ORIGINS
         value: https://ct1eew.github.io
