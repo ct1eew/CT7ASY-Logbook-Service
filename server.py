@@ -43,7 +43,7 @@ def headers(response):
 def bad_value(error):return jsonify(error=str(error)),400
 
 @app.get('/health')
-def health():return jsonify(status='ok',version='0.1.0')
+def health():return jsonify(status='ok',version='0.1.1')
 
 @app.get('/servers')
 def servers():return jsonify(servers=[{'id':k,'name':v['name']} for k,v in SERVERS.items()])
@@ -64,7 +64,7 @@ def connect():
  if not server or not re.fullmatch(r'[A-Z0-9/]{3,20}(?:-[0-9]{1,2})?',call):raise ValueError('Escolha um servidor e indique um indicativo válido.')
  with lock:
   if len(sessions)>=20:return jsonify(error='Serviço ocupado. Tente mais tarde.'),503
-  if sum(s['ip']==request.remote_addr for s in sessions.values())>=3:return jsonify(error='Já existem três ligações neste endereço. Desligue uma ou aguarde dois minutos.'),429
+  if sum(s['ip']==request.remote_addr for s in sessions.values())>=3:return jsonify(error='Já existem três ligações neste endereço. Desligue uma ou aguarde um minuto.'),429
   token=secrets.token_urlsafe(32);cluster=DXCluster()
   cluster.connect({**server,'call':call})
   sessions[token]={'cluster':cluster,'used':time.monotonic(),'ip':request.remote_addr}
@@ -85,16 +85,18 @@ def status():
 
 @app.post('/dx/disconnect')
 def disconnect():
- token,_=session()
+ token=request.headers.get('Authorization','').removeprefix('Bearer ')
+ if not token and request.mimetype=='text/plain':token=request.get_data(as_text=True).strip()
+ if not re.fullmatch(r'[A-Za-z0-9_-]{32,64}',token):return jsonify(error='Sessão inválida.'),400
  with lock:item=sessions.pop(token,None)
  if item:item['cluster'].disconnect()
  return jsonify(status='Desligado')
 
 def reap():
  while True:
-  time.sleep(15);now=time.monotonic()
+  time.sleep(5);now=time.monotonic()
   with lock:
-   expired=[sessions.pop(k) for k,v in list(sessions.items()) if now-v['used']>120]
+   expired=[sessions.pop(k) for k,v in list(sessions.items()) if now-v['used']>45]
    for ip in list(rates):
     if not rates[ip] or now-rates[ip][-1]>60:del rates[ip]
   for item in expired:item['cluster'].disconnect()
