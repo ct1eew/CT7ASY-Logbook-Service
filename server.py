@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 from flask import Flask, request, jsonify
 from dxcluster import DXCluster
 from propagation import predict
+from qrz_service import query as qrz_query
 
 app=Flask(__name__)
 app.config['MAX_CONTENT_LENGTH']=8192
@@ -43,7 +44,7 @@ def headers(response):
 def bad_value(error):return jsonify(error=str(error)),400
 
 @app.get('/health')
-def health():return jsonify(status='ok',version='0.1.1')
+def health():return jsonify(status='ok',version='0.1.2')
 
 @app.get('/servers')
 def servers():return jsonify(servers=[{'id':k,'name':v['name']} for k,v in SERVERS.items()])
@@ -101,5 +102,13 @@ def reap():
     if not rates[ip] or now-rates[ip][-1]>60:del rates[ip]
   for item in expired:item['cluster'].disconnect()
 threading.Thread(target=reap,daemon=True).start()
+
+
+@app.post('/qrz/<action>')
+def qrz(action):
+ if action not in ('login','lookup'):return jsonify(error='Pedido desconhecido.'),404
+ try:return jsonify(qrz_query(action,request.get_json()))
+ except ValueError as error:return jsonify(error=str(error)),400
+ except Exception:return jsonify(error='Não foi possível contactar o QRZ. Tenta novamente.'),502
 
 if __name__=='__main__':app.run(host='127.0.0.1',port=8770,threaded=True)
