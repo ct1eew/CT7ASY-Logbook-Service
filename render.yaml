@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ct7asy-logbook-service
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 100 server:app
+    healthCheckPath: /health
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://ct1eew.github.io
